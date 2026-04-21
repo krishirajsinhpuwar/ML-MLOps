@@ -1,23 +1,23 @@
 """Dagster resources for the bike-sharing preprocessing pipeline."""
 
 from pathlib import Path
+
 from dagster import ConfigurableResource
 
 
 class DataConfig(ConfigurableResource):
     """Configuration resource that holds file paths for all data sources.
 
-    Parameters
+    Attributes
     ----------
     data_dir : str
         Path to the directory containing raw CSV data files.
     output_dir : str
         Path to the directory where processed assets are written.
     """
-    
-    def __init__(self, data_dir: str, output_dir: str):
-        self.data_dir = data_dir
-        self.output_dir = output_dir
+
+    data_dir: str
+    output_dir: str
 
     def get_data_path(self, filename: str) -> Path:
         """Return an absolute Path for a raw data file.

@@ -3,24 +3,25 @@
 import pandas as pd
 from dagster import asset
 
-from src.resources.config import DataConfig
+from pipeline.resources.config import DataConfig
 
 
 @asset(required_resource_keys={"data_config"})
 def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
     """Add a holiday flag and produce the final ML-ready dataset.
 
-    The holiday calendar is merged on the date portion of the ``hour``
-    timestamp. A boolean ``is_holiday`` column is derived from the presence
-    of a holiday name and the raw name column is then dropped.
+    The holiday calendar is merged on the ``date`` column produced by
+    ``rentals_with_time_features``. A boolean ``is_holiday`` column is
+    derived from the presence of a holiday name and the raw name column is
+    then dropped.
 
     Parameters
     ----------
     context : dagster.OpExecutionContext
         Dagster execution context providing access to resources.
     rentals_with_weather : pd.DataFrame
-        Output of the ``rentals_with_weather`` asset. Must contain an
-        ``hour`` column of dtype ``datetime64``.
+        Output of the ``rentals_with_weather`` asset. Must contain a
+        ``date`` column of dtype ``datetime64``.
 
     Returns
     -------
@@ -34,19 +35,17 @@ def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
     holidays = pd.read_csv(
         cfg.get_data_path("holidays.csv"),
         parse_dates=["date"],
+        index_col="id",
     )
-    holidays = holidays.drop(columns=["id"])
 
     df = rentals_with_weather.copy()
-    df["date"] = df["hour"].dt.normalize()
 
     df = pd.merge(df, holidays, on="date", how="left")
     df["is_holiday"] = df["holiday"].notna()
-    df = df.drop(columns=["holiday", "date"])
+    df.drop(columns=["holiday"], inplace=True)
 
     context.log.info(
-        f"Final dataset ready. Shape: {df.shape}. "
-        f"Holiday hours: {df['is_holiday'].sum()}. "
-        f"Columns: {list(df.columns)}"
+        f"Holiday data merged, Final dataset ready. Sample values:\n{df.head()}\nInfo:\n{df.info()}"
     )
+
     return df
