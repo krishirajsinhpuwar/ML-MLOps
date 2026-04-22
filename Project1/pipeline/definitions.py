@@ -32,6 +32,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 _DATA_DIR = str(_PROJECT_ROOT / getenv("RAW_DATA_DIR", "data/raw"))
 
+
 def _build_config() -> tuple[str, dict | None]:
     """Resolve the (output_dir, storage_options) pair based on environment variables.
 
