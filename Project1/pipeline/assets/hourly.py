@@ -12,7 +12,9 @@ def hourly_rentals(context) -> pd.DataFrame:
 
     Individual rental records (one row per trip) are floored to the hour and
     counted. The two sources are outer-merged so that no hour is silently
-    dropped if it appears in only one source.
+    dropped if it appears in only one source. Input locations are resolved
+    by ``data_config`` and may live on the local filesystem or in an
+    S3-compatible bucket.
 
     Parameters
     ----------
@@ -27,15 +29,20 @@ def hourly_rentals(context) -> pd.DataFrame:
     """
     cfg: DataConfig = context.resources.data_config
 
+    registered_path = cfg.get_data_path("registered_bike_rentals.csv")
+    direct_path = cfg.get_data_path("direct_pickup_bike_rentals.csv")
+
     registered = pd.read_csv(
-        cfg.get_data_path("registered_bike_rentals.csv"),
+        registered_path,
         parse_dates=["datetime"],
         index_col="id",
+        storage_options=cfg.storage_options_for(registered_path),
     )
     direct = pd.read_csv(
-        cfg.get_data_path("direct_pickup_bike_rentals.csv"),
+        direct_path,
         parse_dates=["datetime"],
         index_col="id",
+        storage_options=cfg.storage_options_for(direct_path),
     )
 
     registered["date_hour"] = registered["datetime"].dt.floor("h")

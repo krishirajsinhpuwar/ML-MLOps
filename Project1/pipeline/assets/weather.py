@@ -33,10 +33,12 @@ def rentals_with_weather(
     """
     cfg: DataConfig = context.resources.data_config
 
+    weather_path = cfg.get_data_path("weather.csv")
     weather = pd.read_csv(
-        cfg.get_data_path("weather.csv"),
+        weather_path,
         parse_dates=["datetime"],
         index_col="id",
+        storage_options=cfg.storage_options_for(weather_path),
     )
 
     df = pd.merge(rentals_with_time_features, weather, on="datetime", how="left")

@@ -27,15 +27,17 @@ def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
     -------
     pd.DataFrame
         Fully prepared dataset with all rental, time-feature, weather, and
-        holiday columns. Written to ``<output_dir>/final_dataset.csv`` via
-        the IO manager.
+        holiday columns. Persisted via the configured IO manager (local
+        disk or S3).
     """
     cfg: DataConfig = context.resources.data_config
 
+    holidays_path = cfg.get_data_path("holidays.csv")
     holidays = pd.read_csv(
-        cfg.get_data_path("holidays.csv"),
+        holidays_path,
         parse_dates=["date"],
         index_col="id",
+        storage_options=cfg.storage_options_for(holidays_path),
     )
 
     df = rentals_with_weather.copy()

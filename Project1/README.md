@@ -6,7 +6,7 @@ The work is structured as a [Dagster](https://docs.dagster.io) asset graph so ea
 
 ## Data Sources
 
-All raw inputs live in [`raw_data/`](raw_data/):
+All raw inputs live in [`data/raw/`](data/raw/):
 
 | File | Grain | Key columns |
 | --- | --- | --- |
@@ -19,17 +19,17 @@ All raw inputs live in [`raw_data/`](raw_data/):
 
 ```mermaid
 flowchart LR
-    R1[(raw_data/registered_bike_rentals.csv)]
-    R2[(raw_data/direct_pickup_bike_rentals.csv)]
-    W[(raw_data/weather.csv)]
-    H[(raw_data/holidays.csv)]
+    R1[(data/raw/registered_bike_rentals.csv)]
+    R2[(data/raw/direct_pickup_bike_rentals.csv)]
+    W[(data/raw/weather.csv)]
+    H[(data/raw/holidays.csv)]
 
     A1[hourly_rentals<br/><i>floor to hour, add count, outer-merge</i>]
     A2[rentals_with_time_features<br/><i>engineer temporal features hour, date, day, is_weekend, time_of_day</i>]
     A3[rentals_with_weather<br/><i>left-join weather on datetime</i>]
     A4[final_dataset<br/><i>left-join holidays on date, add is_holiday flag</i>]
 
-    OUT[(data/final_dataset.csv)]
+    OUT[(data/output-local/final_dataset.csv<br/>or s3://&lt;bucket&gt;/final_dataset.csv)]
 
     R1 --> A1
     R2 --> A1
@@ -41,11 +41,11 @@ flowchart LR
     A4 --> OUT
 ```
 
-Each asset is a pure pandas transformation. Asset-to-asset handoff is handled by the `CSVIOManager`, which writes every intermediate DataFrame to `data/<asset_key>.csv` and reads it back when a downstream asset needs it. Raw sources are loaded directly with `pd.read_csv` because they aren't produced by any asset.
+Each asset is a pure pandas transformation. Asset-to-asset handoff is handled by the `CSVIOManager`, which writes every intermediate DataFrame to `<output_dir>/<asset_key>.csv` and reads it back when a downstream asset needs it. The `<output_dir>` is either `data/output-local/` (local backend) or an `s3://<bucket>/` prefix (s3 backend). Raw sources are loaded directly with `pd.read_csv` because they aren't produced by any asset.
 
 ### Final schema
 
-[`data/final_dataset.csv`](data/final_dataset.csv):
+`final_dataset.csv` (in [`data/output-local/`](data/output-local/) or in the configured S3 bucket):
 
 | Column | Type | Description |
 | --- | --- | --- |
@@ -69,8 +69,10 @@ Each asset is a pure pandas transformation. Asset-to-asset handoff is handled by
 
 ```
 Project1/
-├── raw_data/                 # source CSVs (inputs)
-├── data/                     # asset outputs written by CSVIOManager
+├── data/
+│   ├── raw/                  # source CSVs (inputs)
+│   ├── output-local/         # asset outputs when STORAGE_BACKEND=local
+│   └── output-s3/            # RustFS container data dir (served as s3://)
 ├── notebooks/
 │   └── processing_clean_data.ipynb   # exploratory counterpart to the pipeline
 ├── pipeline/
@@ -82,9 +84,10 @@ Project1/
 │   ├── io_managers/
 │   │   └── csv_io_manager.py # reads/writes DataFrames as CSV between assets
 │   ├── resources/
-│   │   └── config.py         # DataConfig — paths to raw and processed data dirs
+│   │   └── config.py         # DataConfig — locations for raw and processed data
 │   └── definitions.py        # wires assets, resources, and IO manager
 ├── descriptions/             # project brief PDFs
+├── start-rustfs.sh           # launches a local RustFS S3-compatible backend
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -92,8 +95,30 @@ Project1/
 ### Separation of responsibilities
 
 - **Assets** ([`pipeline/assets/`](pipeline/assets/)) contain the data logic only. They take DataFrames in and return DataFrames out.
-- **Resources** ([`pipeline/resources/config.py`](pipeline/resources/config.py)) hold configuration — the raw and processed directory paths — injected into assets that need them.
-- **IO managers** ([`pipeline/io_managers/csv_io_manager.py`](pipeline/io_managers/csv_io_manager.py)) handle persistence. Swapping CSV for Parquet or object storage would not require touching any asset.
+- **Resources** ([`pipeline/resources/config.py`](pipeline/resources/config.py)) hold configuration — the raw and processed locations (local path or S3 URI) plus `storage_options` — injected into assets that need them.
+- **IO managers** ([`pipeline/io_managers/csv_io_manager.py`](pipeline/io_managers/csv_io_manager.py)) handle persistence. The same manager writes to a local directory or to an S3-compatible bucket depending on the configured `output_dir`.
+
+## Storage Backend
+
+The destination for processed outputs is chosen at startup via the `STORAGE_BACKEND` environment variable (read by [`pipeline/definitions.py`](pipeline/definitions.py)). Raw inputs always come from [`data/raw/`](data/raw/).
+
+| `STORAGE_BACKEND` | Output destination | Notes |
+| --- | --- | --- |
+| `local` *(default)* | [`data/output-local/`](data/output-local/) | Plain local filesystem writes. |
+| `s3` | `s3://<RUSTFS_BUCKET>/` | Writes via `s3fs`; credentials/endpoint from `RUSTFS_*` env vars. |
+
+For the `s3` backend the following environment variables are honored (defaults in parentheses):
+
+- `RUSTFS_BUCKET` (`assets`)
+- `RUSTFS_ACCESS_KEY` (`rustfsadmin`)
+- `RUSTFS_SECRET_KEY` (`rustfsadmin`)
+- `RUSTFS_ENDPOINT_URL` (`http://localhost:9000`)
+
+A local RustFS container that serves [`data/output-s3/`](data/output-s3/) as an S3 endpoint on port 9000 can be started with:
+
+```bash
+./start-rustfs.sh
+```
 
 ## Getting Started
 
@@ -101,6 +126,7 @@ Project1/
 
 - Python ≥ 3.12
 - [uv](https://docs.astral.sh/uv/) for dependency management
+- Docker for Spinning up RustFS container
 
 ### Install
 
@@ -110,13 +136,20 @@ uv sync
 
 ### Run the pipeline
 
+To materialize against an S3 backend source set `STORAGE_BACKEND=s3` in `.env` file and start RustFS **(FOR LOCAL STORAGE AS A BACKEND SKIP THIS STEP)**: 
+
+```bash
+# FOR LOCAL STORAGE AS A BACKEND SKIP THIS STEP
+bash start-rustfs.sh
+```
+
 Launch the Dagster UI and materialize all assets from there:
 
 ```bash
 uv run dagster dev -m pipeline.definitions
 ```
 
-Open the printed URL, select all four assets, and click **Materialize**. Outputs land in `data/`.
+Open the printed URL, select all four assets, and click **Materialize**. Outputs land in `data/output-local/` (or the configured S3 bucket when `STORAGE_BACKEND=s3`).
 
 To materialize from the command line without the UI:
 
