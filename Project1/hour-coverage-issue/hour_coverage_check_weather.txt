@@ -1,4 +1,3 @@
-
 === weather.csv  [/Users/krish/Desktop/LEVEL3-Projects-Testing/Project1/data/raw/weather.csv] ===
   expected rows : 17,544
   actual rows   : 17,379
