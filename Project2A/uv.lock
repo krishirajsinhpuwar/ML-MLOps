@@ -1485,9 +1485,11 @@ wheels = [
 
 [[package]]
 name = "project2a"
-version = "0.1.0"
+version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "matplotlib" },
+    { name = "matplotlib-inline" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "scikit-learn" },
@@ -1502,6 +1504,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "matplotlib", specifier = ">=3.10.9" },
+    { name = "matplotlib-inline", specifier = ">=0.2.1" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
