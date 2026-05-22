@@ -12,8 +12,9 @@ def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
 
     The holiday calendar is merged on the ``date`` column produced by
     ``rentals_with_time_features``. A boolean ``is_holiday`` column is
-    derived from the presence of a holiday name and the raw name column is
-    then dropped.
+    derived from the presence of a holiday name; the raw name column and
+    the helper ``date`` column are then dropped so the persisted dataset
+    only carries model-ready features.
 
     Parameters
     ----------
@@ -45,7 +46,7 @@ def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.merge(df, holidays, on="date", how="left")
     df["is_holiday"] = df["holiday"].notna()
-    df.drop(columns=["holiday"], inplace=True)
+    df.drop(columns=["holiday", "date"], inplace=True)
 
     context.log.info(
         "Holiday data merged, Final dataset ready. Sample values:\n"

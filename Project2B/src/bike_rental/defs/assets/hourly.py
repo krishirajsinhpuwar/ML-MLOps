@@ -8,13 +8,15 @@ from bike_rental.defs.resources.config import DataConfig
 
 @asset(required_resource_keys={"data_config"})
 def hourly_rentals(context) -> pd.DataFrame:
-    """Load registered and direct rental CSVs, aggregate both to hourly counts.
+    """Load rental CSVs, aggregate both to a single hourly total.
 
     Individual rental records (one row per trip) are floored to the hour and
     counted. The two sources are outer-merged so that no hour is silently
-    dropped if it appears in only one source. Input locations are resolved
-    by ``data_config`` and may live on the local filesystem or in an
-    S3-compatible bucket.
+    dropped if it appears in only one source, then summed into a single
+    ``total_count`` column. The per-source counts are not retained — they
+    would leak the target in downstream modelling. Input locations are
+    resolved by ``data_config`` and may live on the local filesystem or in
+    an S3-compatible bucket.
 
     Parameters
     ----------
@@ -24,8 +26,7 @@ def hourly_rentals(context) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns:
-        ``datetime``, ``registered_count``, ``direct_count``, ``total_count``.
+        DataFrame with columns: ``datetime``, ``total_count``.
 
     """
     cfg: DataConfig = context.resources.data_config
@@ -70,6 +71,7 @@ def hourly_rentals(context) -> pd.DataFrame:
     df["total_count"] = df["registered_count"] + df["direct_count"]
 
     df = df.sort_values("datetime").reset_index(drop=True)
+    df.drop(columns=["registered_count", "direct_count"], inplace=True)
 
     context.log.info(
         f"Hourly rentals loaded and aggregated. Sample values:\n"

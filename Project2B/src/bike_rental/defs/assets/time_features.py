@@ -10,9 +10,10 @@ def rentals_with_time_features(
 ) -> pd.DataFrame:
     """Engineer temporal features from the ``datetime`` column.
 
-    Adds columns that expose categorical time signals useful for machine
-    learning: hour of day, date, day of week, a weekend flag, and a coarse
-    time-of-day bucket.
+    Adds columns that expose calendar and time-of-day signals useful for
+    machine learning: hour of day, day-of-month, month, year, ISO week,
+    day-of-week, a weekend flag, and the calendar date used as the join
+    key for the holiday calendar.
 
     Parameters
     ----------
@@ -24,26 +25,25 @@ def rentals_with_time_features(
     -------
     pd.DataFrame
         Input DataFrame extended with columns:
-        ``hour``, ``date``, ``day``, ``is_weekend``, ``time_of_day``.
+        ``hour``, ``day_of_month``, ``month``, ``year``, ``week``,
+        ``day_of_week``, ``is_weekend``, ``date``.
 
     """
     df = hourly_rentals.copy()
 
     df["hour"] = df["datetime"].dt.hour.astype("int8")  # 0–23
+    df["day_of_month"] = df["datetime"].dt.day.astype("int8")  # 1–31
+    df["month"] = df["datetime"].dt.month.astype("int8")  # 1–12
+    df["year"] = df["datetime"].dt.year.astype("int16")  # e.g. 2011
+    df["week"] = df["datetime"].dt.isocalendar().week.astype("int8")  # 1–53
+    df["day_of_week"] = df["datetime"].dt.dayofweek.astype(
+        "int8"
+    )  # 0=Monday, 6=Sunday
+    df["is_weekend"] = df["day_of_week"] >= 5  # Saturday or Sunday
+
     df["date"] = df["datetime"].dt.date.astype(
         "datetime64[us]"
     )  # calendar date, for holiday join
-    df["day"] = df["datetime"].dt.dayofweek.astype("int8")  # 0=Monday, 6=Sunday
-    df["is_weekend"] = df["day"] >= 5  # Saturday or Sunday
-    df["time_of_day"] = pd.cut(
-        df["hour"],
-        # 0=night [0-5],
-        # 1=morning [6-11],
-        # 2=afternoon [12-17],
-        # 3=evening [18-23]
-        bins=[-1, 5, 11, 17, 23],
-        labels=[0, 1, 2, 3],
-    ).astype("int8")
 
     context.log.info(
         f"Time features engineered. Sample values:\n"
