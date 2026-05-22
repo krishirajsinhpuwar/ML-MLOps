@@ -17,12 +17,15 @@ from dagster import Definitions, definitions
 from dotenv import load_dotenv
 
 from bike_rental.defs.assets import (
+    engineered_features,
     final_dataset,
     hourly_rentals,
     rentals_with_time_features,
     rentals_with_weather,
+    trained_model,
 )
 from bike_rental.defs.io_managers.csv_io_manager import CSVIOManager
+from bike_rental.defs.io_managers.pickle_io_manager import PickleIOManager
 from bike_rental.defs.resources.config import DataConfig
 
 # Resolve paths relative to this file so the pipeline works from any cwd
@@ -91,6 +94,8 @@ def defs() -> Definitions:
             rentals_with_time_features,
             rentals_with_weather,
             final_dataset,
+            engineered_features,
+            trained_model,
         ],
         resources={
             "data_config": DataConfig(
@@ -99,6 +104,10 @@ def defs() -> Definitions:
                 storage_options=_STORAGE_OPTIONS,
             ),
             "io_manager": CSVIOManager(
+                output_dir=_OUTPUT_DIR,
+                storage_options=_STORAGE_OPTIONS,
+            ),
+            "pickle_io_manager": PickleIOManager(
                 output_dir=_OUTPUT_DIR,
                 storage_options=_STORAGE_OPTIONS,
             ),
