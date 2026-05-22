@@ -25,9 +25,7 @@ from dagster import asset
 
 
 @asset
-def engineered_features(
-    context, final_dataset: pd.DataFrame
-) -> pd.DataFrame:
+def engineered_features(context, final_dataset: pd.DataFrame) -> pd.DataFrame:
     """Add cyclic, interaction, and lag features to the prepared dataset.
 
     Parameters

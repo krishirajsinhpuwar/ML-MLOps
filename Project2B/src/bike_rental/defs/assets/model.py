@@ -114,9 +114,7 @@ def trained_model(
     y_pred_test = model.predict(X_test)
 
     metrics = {
-        "rmse_train": float(
-            np.sqrt(mean_squared_error(y_train, y_pred_train))
-        ),
+        "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
         "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
         "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
         "mae_test": float(mean_absolute_error(y_test, y_pred_test)),
