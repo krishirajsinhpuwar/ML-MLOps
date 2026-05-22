@@ -31,11 +31,11 @@ def rentals_with_time_features(
     """
     df = hourly_rentals.copy()
 
-    df["hour"] = df["datetime"].dt.hour.astype("int8")  # 0–23
-    df["day_of_month"] = df["datetime"].dt.day.astype("int8")  # 1–31
-    df["month"] = df["datetime"].dt.month.astype("int8")  # 1–12
+    df["hour"] = df["datetime"].dt.hour.astype("int8")  # 0-23
+    df["day_of_month"] = df["datetime"].dt.day.astype("int8")  # 1-31
+    df["month"] = df["datetime"].dt.month.astype("int8")  # 1-12
     df["year"] = df["datetime"].dt.year.astype("int16")  # e.g. 2011
-    df["week"] = df["datetime"].dt.isocalendar().week.astype("int8")  # 1–53
+    df["week"] = df["datetime"].dt.isocalendar().week.astype("int8")  # 1-53
     df["day_of_week"] = df["datetime"].dt.dayofweek.astype(
         "int8"
     )  # 0=Monday, 6=Sunday
