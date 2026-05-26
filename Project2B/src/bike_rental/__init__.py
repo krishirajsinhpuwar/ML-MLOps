@@ -1,1 +1,0 @@
-"""Bike rental pipeline package."""
