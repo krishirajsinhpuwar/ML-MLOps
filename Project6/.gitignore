@@ -1,0 +1,12 @@
+/data/output-local
+/data/output-s3
+/logs
+
+/mlruns
+/mlartifacts
+/mlflow.db
+
+/api
+
+clean.sh
+logs.md
