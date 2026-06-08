@@ -1,13 +1,18 @@
 """Dagster Definitions — wires assets, resources, and IO manager together.
 
-Raw CSV inputs are always read from ``<repo>/data/raw``. The destination
-for processed outputs is selected via the ``STORAGE_BACKEND`` environment
-variable:
+The destination for both raw inputs and processed outputs is selected
+via the ``STORAGE_BACKEND`` environment variable:
 
-- ``local`` (default) — outputs are written to ``<repo>/data/output-local``.
-- ``s3`` — outputs are written to an S3-compatible bucket (e.g. RustFS).
-  The endpoint, credentials, and bucket name are controlled by
-  ``RUSTFS_*`` environment variables.
+- ``local`` (default) — raw inputs read from ``<repo>/data/raw``; outputs
+  written to ``<repo>/data/output-local``.
+- ``s3`` — raw inputs read from ``<repo>/data/raw``; outputs written to
+  an S3-compatible bucket (e.g. RustFS). Endpoint, credentials, and
+  bucket name come from ``RUSTFS_*`` environment variables.
+- ``lakefs`` — raw inputs read from a LakeFS repository at
+  ``lakefs://<repo>/<source_branch>/raw``; outputs written to
+  ``lakefs://<repo>/<output_branch>/processed`` and committed by the
+  ``versioned_outputs`` asset. Endpoint, credentials, repo name, and
+  branch names come from ``LAKEFS_*`` environment variables.
 """
 
 from os import getenv
@@ -23,61 +28,78 @@ from bike_rental.defs.assets import (
     rentals_with_time_features,
     rentals_with_weather,
     trained_model,
+    versioned_outputs,
 )
 from bike_rental.defs.io_managers.csv_io_manager import CSVIOManager
 from bike_rental.defs.io_managers.pickle_io_manager import PickleIOManager
 from bike_rental.defs.resources.config import DataConfig
+from bike_rental.defs.resources.lakefs import LakeFSResource
 from bike_rental.defs.resources.mlflow import MLflowResource
 
 # Resolve paths relative to this file so the pipeline works from any cwd
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-print(f"Resolved project root: {_PROJECT_ROOT}")
-
 # Load environment variables from .env file (if it exists)
 load_dotenv(_PROJECT_ROOT / ".env")
 
 
-def _build_config() -> tuple[str, dict | None]:
-    """Resolve the (output_dir, storage_options) pair based on env variables.
+_BACKEND = getenv("STORAGE_BACKEND", "local").lower()
+_RAW_DATA_DIR = getenv("RAW_DATA_DIR", "data/raw")
+_LOCAL_STORAGE_DIR = getenv("LOCAL_STORAGE_DIR", "data/output-local")
 
-    Returns
-    -------
-        ``(output_dir, storage_options)``. ``storage_options``
-        is ``None`` for the local backend and a pandas-compatible mapping
-        for the S3 backend.
+_RUSTFS_BUCKET = getenv("RUSTFS_BUCKET", "bucket")
+_RUSTFS_ENDPOINT_URL = getenv("RUSTFS_ENDPOINT_URL", "http://localhost:9000")
+_RUSTFS_ACCESS_KEY = getenv("RUSTFS_ACCESS_KEY", "admin")
+_RUSTFS_SECRET_KEY = getenv("RUSTFS_SECRET_KEY", "admin")
 
+_LAKEFS_REPO = getenv("LAKEFS_REPO", "repo")
+_LAKEFS_SOURCE_BRANCH = getenv("LAKEFS_SOURCE_BRANCH", "main")
+_LAKEFS_OUTPUT_BRANCH = getenv("LAKEFS_OUTPUT_BRANCH", "output")
+_LAKEFS_ENDPOINT = getenv("LAKEFS_ENDPOINT_URL", "http://localhost:8000")
+_LAKEFS_ACCESS_KEY = getenv("LAKEFS_ACCESS_KEY", "admin")
+_LAKEFS_SECRET_KEY = getenv("LAKEFS_SECRET_KEY", "admin")
+
+_MLFLOW_TRACKING_URI = getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+_MLFLOW_EXPERIMENT_NAME = getenv("MLFLOW_EXPERIMENT_NAME", "bike-rental-demand")
+
+
+def _build_config() -> tuple[str, str, dict | None]:
+    """Resolve ``(data_dir, output_dir, storage_options)`` from env vars.
+
+    The triple is consumed by the ``DataConfig`` resource and the IO
+    managers. For the LakeFS backend, raw inputs and outputs live on
+    different branches of the same repo (``source_branch`` → read,
+    ``output_branch`` → write).
     """
-    backend = getenv("STORAGE_BACKEND", "local").lower()
-    if backend == "s3":
-        output_dir = f"s3://{getenv('RUSTFS_BUCKET', 'assets')}"
+    if _BACKEND == "s3":
+        data_dir = str(_PROJECT_ROOT / _RAW_DATA_DIR)
+        output_dir = f"s3://{_RUSTFS_BUCKET}/processed"
         storage_options = {
-            "key": getenv("RUSTFS_ACCESS_KEY", "admin"),
-            "secret": getenv("RUSTFS_SECRET_KEY", "admin"),
+            "key": _RUSTFS_ACCESS_KEY,
+            "secret": _RUSTFS_SECRET_KEY,
             "client_kwargs": {
-                "endpoint_url": getenv(
-                    "RUSTFS_ENDPOINT_URL", "http://localhost:9000"
-                ),
+                "endpoint_url": _RUSTFS_ENDPOINT_URL,
             },
         }
-    else:
-        output_dir = str(
-            _PROJECT_ROOT / getenv("LOCAL_STORAGE_DIR", "data/output-local")
+    elif _BACKEND == "lakefs":
+        data_dir = f"lakefs://{_LAKEFS_REPO}/{_LAKEFS_SOURCE_BRANCH}/raw"
+        output_dir = (
+            f"lakefs://{_LAKEFS_REPO}/{_LAKEFS_OUTPUT_BRANCH}/processed"
         )
+        storage_options = {
+            "host": _LAKEFS_ENDPOINT,
+            "username": _LAKEFS_ACCESS_KEY,
+            "password": _LAKEFS_SECRET_KEY,
+        }
+    else:
+        data_dir = str(_PROJECT_ROOT / _RAW_DATA_DIR)
+        output_dir = str(_PROJECT_ROOT / _LOCAL_STORAGE_DIR)
         storage_options = None
 
-    return output_dir, storage_options
+    return data_dir, output_dir, storage_options
 
 
-_DATA_DIR = str(_PROJECT_ROOT / getenv("RAW_DATA_DIR", "data/raw"))
-_OUTPUT_DIR, _STORAGE_OPTIONS = _build_config()
-
-_MLFLOW_TRACKING_URI = getenv(
-    "MLFLOW_TRACKING_URI", f"file:{_PROJECT_ROOT / 'mlruns'}"
-)
-_MLFLOW_EXPERIMENT_NAME = getenv(
-    "MLFLOW_EXPERIMENT_NAME", "bike-rental-demand"
-)
+_DATA_DIR, _OUTPUT_DIR, _STORAGE_OPTIONS = _build_config()
 
 
 @definitions
@@ -104,6 +126,7 @@ def defs() -> Definitions:
             final_dataset,
             engineered_features,
             trained_model,
+            versioned_outputs,
         ],
         resources={
             "data_config": DataConfig(
@@ -122,6 +145,13 @@ def defs() -> Definitions:
             "mlflow_config": MLflowResource(
                 tracking_uri=_MLFLOW_TRACKING_URI,
                 experiment_name=_MLFLOW_EXPERIMENT_NAME,
+            ),
+            "lakefs": LakeFSResource(
+                enabled=_BACKEND == "lakefs",
+                storage_options=_STORAGE_OPTIONS,
+                repo=_LAKEFS_REPO,
+                source_branch=_LAKEFS_SOURCE_BRANCH,
+                output_branch=_LAKEFS_OUTPUT_BRANCH,
             ),
         },
     )

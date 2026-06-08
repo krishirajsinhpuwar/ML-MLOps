@@ -17,13 +17,14 @@ from typing import Any
 from dagster import ConfigurableResource
 
 
-def _is_s3_uri(location: str) -> bool:
-    return location.startswith("s3://")
+def _is_remote(location: str) -> bool:
+    """Return ``True`` for any fsspec-style URI (``<scheme>://...``)."""
+    return "://" in location
 
 
 def _join(base: str, name: str) -> str:
-    """Append ``name`` to ``base``, handling both local paths and S3 URIs."""
-    if _is_s3_uri(base):
+    """Append ``name`` to ``base``, handling both local paths and remote URIs."""
+    if _is_remote(base):
         return f"{base.rstrip('/')}/{name}"
     return str(Path(base) / name)
 
@@ -87,14 +88,14 @@ class DataConfig(ConfigurableResource):
 
         """
         location = _join(self.output_dir, filename)
-        if not _is_s3_uri(location):
+        if not _is_remote(location):
             Path(location).parent.mkdir(parents=True, exist_ok=True)
         return location
 
     @property
     def is_remote(self) -> bool:
         """Return ``True`` if either the input or output location is remote."""
-        return _is_s3_uri(self.data_dir) or _is_s3_uri(self.output_dir)
+        return _is_remote(self.data_dir) or _is_remote(self.output_dir)
 
     def storage_options_for(self, location: str) -> dict[str, Any] | None:
         """Return ``storage_options`` appropriate for ``location``.
@@ -113,4 +114,4 @@ class DataConfig(ConfigurableResource):
             or :meth:`get_output_path`.
 
         """
-        return self.storage_options if _is_s3_uri(location) else None
+        return self.storage_options if _is_remote(location) else None

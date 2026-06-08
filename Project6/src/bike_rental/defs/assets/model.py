@@ -19,6 +19,8 @@ is tagged with the ``candidate`` alias — promotion to ``production`` is
 an explicit decision made downstream (see the API in Part 3).
 """
 
+from os import getenv
+
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -35,9 +37,12 @@ from sklearn.metrics import (
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
+from bike_rental.defs.resources.lakefs import LakeFSResource
 from bike_rental.defs.resources.mlflow import MLflowResource
 
-_REGISTERED_MODEL_NAME = "XGBoost-bike-rental-demand"
+_REGISTERED_MODEL_NAME = getenv(
+    "MLFLOW_REGISTERED_MODEL_NAME", "xgboost-log1p-bike-rental-demand"
+)
 
 FEATURES_NUM = [
     "hour",
@@ -70,7 +75,7 @@ CANDIDATE_ALIAS = "candidate"
 
 @asset(
     io_manager_key="pickle_io_manager",
-    required_resource_keys={"mlflow_config"},
+    required_resource_keys={"mlflow_config", "lakefs"},
 )
 def trained_model(
     context, engineered_features: pd.DataFrame
@@ -112,6 +117,8 @@ def trained_model(
     """
     mlflow_cfg: MLflowResource = context.resources.mlflow_config
     mlflow_cfg.configure()
+    lakefs_cfg: LakeFSResource = context.resources.lakefs
+    data_commit_sha = lakefs_cfg.source_commit_sha()
 
     df = engineered_features
 
@@ -146,28 +153,31 @@ def trained_model(
     run_name = f"dagster-{context.run_id[:8]}"
 
     with mlflow.start_run(run_name=run_name) as run:
-        mlflow.set_tags(
-            {
-                "dagster_run_id": context.run_id,
-                "dagster_asset": "trained_model",
-                "model_family": "xgboost",
-                "target_transform": "log1p",
-            }
-        )
+        tags = {
+            "dagster_run_id": context.run_id,
+            "dagster_asset": "trained_model",
+            "model_family": "xgboost",
+            "target_transform": "log1p",
+        }
+        if data_commit_sha is not None:
+            tags["lakefs_repo"] = lakefs_cfg.repo
+            tags["lakefs_source_branch"] = lakefs_cfg.source_branch
+            tags["lakefs_source_commit"] = data_commit_sha
+        mlflow.set_tags(tags)
 
-        mlflow.log_params(
-            {
-                **XGB_PARAMS,
-                "features_num": FEATURES_NUM,
-                "features_cat": FEATURES_CAT,
-                "target": TARGET,
-                "column_transformer": "onehot_cat",
-                "target_transform": "log1p",
-                "split_strategy": "chronological_80_20",
-                "rows_train": len(df_train),
-                "rows_test": len(df_test),
-            }
-        )
+        params = {
+            "model_family": "xgboost",
+            **XGB_PARAMS,
+            "features_num": FEATURES_NUM,
+            "features_cat": FEATURES_CAT,
+            "target": TARGET,
+            "column_transformer": "onehot_cat",
+            "target_transform": "log1p",
+            "split_strategy": "chronological_80_20",
+            "rows_train": len(df_train),
+            "rows_test": len(df_test),
+        }
+        mlflow.log_params(params)
 
         model.fit(X_train, y_train)
 
@@ -191,17 +201,16 @@ def trained_model(
         signature = infer_signature(X_train, y_pred_train)
         logged_model = mlflow.sklearn.log_model(
             sk_model=model,
-            artifact_path="model",
+            name="xgboost_log1p",
             signature=signature,
             input_example=X_train.head(5),
             registered_model_name=_REGISTERED_MODEL_NAME,
+            pyfunc_predict_fn="predict",
         )
 
         client = mlflow.MlflowClient()
         latest_version = max(
-            client.search_model_versions(
-                f"name='{_REGISTERED_MODEL_NAME}'"
-            ),
+            client.search_model_versions(f"name='{_REGISTERED_MODEL_NAME}'"),
             key=lambda v: int(v.version),
         )
         client.set_registered_model_alias(
@@ -230,6 +239,7 @@ def trained_model(
                 "registered_model": _REGISTERED_MODEL_NAME,
                 "registered_version": int(latest_version.version),
                 "registered_alias": CANDIDATE_ALIAS,
+                "lakefs_source_commit": data_commit_sha or "n/a",
                 **{k: round(v, 4) for k, v in metrics.items()},
             }
         )

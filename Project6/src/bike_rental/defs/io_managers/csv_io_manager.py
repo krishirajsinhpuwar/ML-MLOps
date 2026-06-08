@@ -18,8 +18,9 @@ from dagster import ConfigurableIOManager, InputContext, OutputContext
 _DATETIME_COLUMNS = ("datetime", "date")
 
 
-def _is_s3_uri(location: str) -> bool:
-    return location.startswith("s3://")
+def _is_remote(location: str) -> bool:
+    """Return ``True`` for any fsspec-style URI (``<scheme>://...``)."""
+    return "://" in location
 
 
 class CSVIOManager(ConfigurableIOManager):
@@ -47,13 +48,13 @@ class CSVIOManager(ConfigurableIOManager):
         """Derive the CSV location for an asset from its asset key."""
         asset_key = "__".join(context.asset_key.path)
         filename = f"{asset_key}.csv"
-        if _is_s3_uri(self.output_dir):
+        if _is_remote(self.output_dir):
             return f"{self.output_dir.rstrip('/')}/{filename}"
         return str(Path(self.output_dir) / filename)
 
     def _storage_options_for(self, path: str) -> dict[str, Any] | None:
         """Only forward ``storage_options`` for fsspec path, not local path."""
-        return self.storage_options if _is_s3_uri(path) else None
+        return self.storage_options if _is_remote(path) else None
 
     def handle_output(self, context: OutputContext, obj: pd.DataFrame) -> None:
         """Write a DataFrame to CSV at the asset's destination.
@@ -67,7 +68,7 @@ class CSVIOManager(ConfigurableIOManager):
 
         """
         path = self._get_path(context)
-        if not _is_s3_uri(path):
+        if not _is_remote(path):
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         obj.to_csv(
             path, index=False, storage_options=self._storage_options_for(path)

@@ -35,3 +35,5 @@ docker run -d \
   -v "$(pwd)/${RUSTFS_STORAGE_DIR}:/data" \
   -v "$(pwd)/${RUSTFS_LOGS_DIR}:/logs" \
   rustfs/rustfs:latest
+
+echo "RustFS is starting; UI will be available at http://localhost:${RUSTFS_WEB_SERVER_UI_PORT}"

@@ -16,8 +16,9 @@ import fsspec
 from dagster import ConfigurableIOManager, InputContext, OutputContext
 
 
-def _is_s3_uri(location: str) -> bool:
-    return location.startswith("s3://")
+def _is_remote(location: str) -> bool:
+    """Return ``True`` for any fsspec-style URI (``<scheme>://...``)."""
+    return "://" in location
 
 
 class PickleIOManager(ConfigurableIOManager):
@@ -45,13 +46,13 @@ class PickleIOManager(ConfigurableIOManager):
         """Derive the pickle location for an asset from its asset key."""
         asset_key = "__".join(context.asset_key.path)
         filename = f"{asset_key}.pkl"
-        if _is_s3_uri(self.output_dir):
+        if _is_remote(self.output_dir):
             return f"{self.output_dir.rstrip('/')}/{filename}"
         return str(Path(self.output_dir) / filename)
 
     def _storage_options_for(self, path: str) -> dict[str, Any]:
         """Only forward `storage_options` for fsspec paths, not local paths."""
-        if _is_s3_uri(path) and self.storage_options:
+        if _is_remote(path) and self.storage_options:
             return self.storage_options
         return {}
 
@@ -68,7 +69,7 @@ class PickleIOManager(ConfigurableIOManager):
 
         """
         path = self._get_path(context)
-        if not _is_s3_uri(path):
+        if not _is_remote(path):
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         with fsspec.open(path, "wb", **self._storage_options_for(path)) as f:
             pickle.dump(obj, f)
