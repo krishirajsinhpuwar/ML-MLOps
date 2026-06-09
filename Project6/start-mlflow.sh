@@ -9,11 +9,15 @@ else
     echo "Warning: .env file not found, using default values."
 fi
 
-: "${STORAGE_BACKEND:=local}"
 
 # Set default values using the : ${VAR:=default} syntax
+: "${STORAGE_BACKEND:=local}"
+: "${LOGS_DIR:=logs}"
 : "${MLFLOW_ENDPOINT_PORT:=5000}"
 : "${MLFLOW_BACKEND_STORE_URI:=sqlite:///mlflow.db}"
+
+# Ensure directories exist
+mkdir -p $LOGS_DIR
 
 case "${STORAGE_BACKEND}" in
     lakefs)
@@ -71,4 +75,5 @@ exec uv run mlflow server \
     --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
     --artifacts-destination "${MLFLOW_ARTIFACT_STORE_URI}" \
     --host 0.0.0.0 \
-    --port "${MLFLOW_ENDPOINT_PORT}"
+    --port "${MLFLOW_ENDPOINT_PORT}" \
+    > $LOGS_DIR/mlflow.log 2>&1

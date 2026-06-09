@@ -11,3 +11,4 @@
 /.tmp_*
 
 clean.sh
+test-api.sh
