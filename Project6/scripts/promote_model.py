@@ -29,10 +29,10 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL_NAME = getenv(
+_MLFLOW_REGISTERED_MODEL_NAME = getenv(
     "MLFLOW_REGISTERED_MODEL_NAME", "xgboost-log1p-bike-rental-demand"
 )
-TRACKING_URI = getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+_MLFLOW_TRACKING_URI = getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 SOURCE_ALIAS = "candidate"
 TARGET_ALIAS = "production"
 
@@ -51,7 +51,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-name",
         type=str,
-        default=MODEL_NAME,
+        default=_MLFLOW_REGISTERED_MODEL_NAME,
         help="Registered model name (default: %(default)s).",
     )
     return parser.parse_args()
@@ -59,7 +59,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
-    mlflow.set_tracking_uri(TRACKING_URI)
+    mlflow.set_tracking_uri(_MLFLOW_TRACKING_URI)
     client = mlflow.MlflowClient()
 
     if args.version is not None:

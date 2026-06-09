@@ -59,7 +59,7 @@ _RUSTFS_SECRET_KEY = getenv("RUSTFS_SECRET_KEY", "admin")
 # RustFS bucket with the project's ``STORAGE_BACKEND=s3`` mode is safe:
 # the S3 mode writes flat CSVs at the bucket root, LakeFS lives under
 # the per-repo prefix.
-STORAGE_NAMESPACE = getenv(
+_LAKEFS_STORAGE_NAMESPACE = getenv(
     "LAKEFS_STORAGE_NAMESPACE", f"s3://{_RUSTFS_BUCKET}/{_LAKEFS_REPO}"
 )
 
@@ -92,12 +92,12 @@ def _ensure_repository(client: Client) -> lakefs.Repository:
     repo = lakefs.Repository(_LAKEFS_REPO, client=client)
     try:
         repo.create(
-            storage_namespace=STORAGE_NAMESPACE,
+            storage_namespace=_LAKEFS_STORAGE_NAMESPACE,
             default_branch=_LAKEFS_SOURCE_BRANCH,
             exist_ok=True,
         )
         print(
-            f"Repository {_LAKEFS_REPO!r} ready (namespace={STORAGE_NAMESPACE})."
+            f"Repository {_LAKEFS_REPO!r} ready (namespace={_LAKEFS_STORAGE_NAMESPACE})."
         )
     except ConflictException:
         print(f"Repository {_LAKEFS_REPO!r} already exists.")
@@ -172,7 +172,7 @@ def main() -> int:
         "(protected)"
     )
     print(f"  Write branch : lakefs://{_LAKEFS_REPO}/{_LAKEFS_OUTPUT_BRANCH}")
-    print(f"  Backed by    : {STORAGE_NAMESPACE} on RustFS")
+    print(f"  Backed by    : {_LAKEFS_STORAGE_NAMESPACE} on RustFS")
     return 0
 
 

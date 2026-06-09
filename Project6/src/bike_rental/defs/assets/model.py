@@ -40,7 +40,7 @@ from sklearn.preprocessing import OneHotEncoder
 from bike_rental.defs.resources.lakefs import LakeFSResource
 from bike_rental.defs.resources.mlflow import MLflowResource
 
-_REGISTERED_MODEL_NAME = getenv(
+_MLFLOW_REGISTERED_MODEL_NAME = getenv(
     "MLFLOW_REGISTERED_MODEL_NAME", "xgboost-log1p-bike-rental-demand"
 )
 
@@ -96,7 +96,7 @@ def trained_model(
     - Artifact: the fitted ``TransformedTargetRegressor`` logged via
       ``mlflow.sklearn`` with an inferred input/output signature.
     - Registry: the model is registered as a new version under
-      ``_REGISTERED_MODEL_NAME`` and tagged with the
+      ``_MLFLOW_REGISTERED_MODEL_NAME`` and tagged with the
       ``candidate`` alias.
 
     Parameters
@@ -204,17 +204,17 @@ def trained_model(
             name="xgboost_log1p",
             signature=signature,
             input_example=X_train.head(5),
-            registered_model_name=_REGISTERED_MODEL_NAME,
+            registered_model_name=_MLFLOW_REGISTERED_MODEL_NAME,
             pyfunc_predict_fn="predict",
         )
 
         client = mlflow.MlflowClient()
         latest_version = max(
-            client.search_model_versions(f"name='{_REGISTERED_MODEL_NAME}'"),
+            client.search_model_versions(f"name='{_MLFLOW_REGISTERED_MODEL_NAME}'"),
             key=lambda v: int(v.version),
         )
         client.set_registered_model_alias(
-            name=_REGISTERED_MODEL_NAME,
+            name=_MLFLOW_REGISTERED_MODEL_NAME,
             alias=CANDIDATE_ALIAS,
             version=latest_version.version,
         )
@@ -224,7 +224,7 @@ def trained_model(
             f"Train: {len(df_train)} rows | Test: {len(df_test)} rows\n"
             f"Metrics: {metrics}\n"
             f"MLflow run_id: {run.info.run_id}\n"
-            f"Registered model: {_REGISTERED_MODEL_NAME} "
+            f"Registered model: {_MLFLOW_REGISTERED_MODEL_NAME} "
             f"v{latest_version.version} (alias='{CANDIDATE_ALIAS}')"
         )
 
@@ -236,7 +236,7 @@ def trained_model(
                 "mlflow_run_id": run.info.run_id,
                 "mlflow_experiment_id": run.info.experiment_id,
                 "mlflow_model_uri": logged_model.model_uri,
-                "registered_model": _REGISTERED_MODEL_NAME,
+                "registered_model": _MLFLOW_REGISTERED_MODEL_NAME,
                 "registered_version": int(latest_version.version),
                 "registered_alias": CANDIDATE_ALIAS,
                 "lakefs_source_commit": data_commit_sha or "n/a",
