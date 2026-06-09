@@ -44,7 +44,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 _RAW_DATA_DIR = Path(getenv("RAW_DATA_DIR", _PROJECT_ROOT / "data/raw"))
 
 _LAKEFS_REPO = getenv("LAKEFS_REPO", "repo")
-_LAKEFS_ENDPOINT = getenv("LAKEFS_ENDPOINT_URL", "http://localhost:8000")
+_LAKEFS_ENDPOINT_URL = getenv("LAKEFS_ENDPOINT_URL", "http://localhost:8000")
 _LAKEFS_ACCESS_KEY = getenv("LAKEFS_ACCESS_KEY", "admin")
 _LAKEFS_SECRET_KEY = getenv("LAKEFS_SECRET_KEY", "admin")
 _LAKEFS_SOURCE_BRANCH = getenv("LAKEFS_SOURCE_BRANCH", "main")
@@ -66,7 +66,7 @@ _LAKEFS_STORAGE_NAMESPACE = getenv(
 
 def _client() -> Client:
     return Client(
-        host=_LAKEFS_ENDPOINT,
+        host=_LAKEFS_ENDPOINT_URL,
         username=_LAKEFS_ACCESS_KEY,
         password=_LAKEFS_SECRET_KEY,
     )
