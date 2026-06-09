@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Start the FastAPI prediction service (uvicorn) on :8800. It loads the
+# model carrying the 'production' alias from the MLflow registry, so the
+# MLflow server must be reachable. Logs to $LOGS_DIR/api.log.
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then

@@ -23,7 +23,7 @@ def _is_remote(location: str) -> bool:
 
 
 def _join(base: str, name: str) -> str:
-    """Append ``name`` to ``base``, handling both local paths and remote URIs."""
+    """Append ``name`` to ``base`` (local path or remote URI)."""
     if _is_remote(base):
         return f"{base.rstrip('/')}/{name}"
     return str(Path(base) / name)

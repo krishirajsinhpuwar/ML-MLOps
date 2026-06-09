@@ -1,10 +1,11 @@
 """Asset: commit pipeline outputs to LakeFS so derived assets are versioned.
 
 Each Dagster pipeline run writes its derived CSVs and the model pickle to
-the LakeFS ``output_branch`` (default ``staging``). lakefs-spec stages
+the LakeFS ``output_branch`` (default ``output``). lakefs-spec stages
 those writes as uncommitted changes; this asset turns the staged changes
-into a versioned commit and records the commit SHA on both the Dagster
-materialization and the MLflow run created by ``trained_model``.
+into a versioned commit and records the commit SHA on the Dagster
+materialization. (The matching source-branch commit SHA is recorded
+separately on the MLflow run by the ``trained_model`` asset.)
 
 When the active backend is not LakeFS (``STORAGE_BACKEND`` ≠ ``lakefs``)
 the resource is in disabled mode and the asset is a no-op: it
@@ -27,7 +28,7 @@ from bike_rental.defs.resources.lakefs import LakeFSResource
 @asset(required_resource_keys={"lakefs"})
 def versioned_outputs(
     context,
-    trained_model: TransformedTargetRegressor,  # noqa: ARG001 — ordering dep
+    trained_model: TransformedTargetRegressor,
 ) -> MaterializeResult:
     """Commit the run's derived assets to the LakeFS output branch.
 

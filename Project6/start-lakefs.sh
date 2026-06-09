@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Start the LakeFS (data versioning) container, using RustFS as its S3
+# blockstore. Run ./start-rustfs.sh first.
+# Config from .env (LAKEFS_*/RUSTFS_* vars); UI + API on :8000.
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then

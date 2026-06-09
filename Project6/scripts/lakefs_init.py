@@ -10,8 +10,8 @@ the rest of the project uses, not a LakeFS-local blockstore.
 What this script does
 ---------------------
 1. Ensures the RustFS bucket that backs the LakeFS namespace exists
-   (``RUSTFS_BUCKET``, default ``bike-rental``). Created via s3fs if missing.
-2. Creates the LakeFS repository (default ``bike-rental``) with
+   (``RUSTFS_BUCKET``, default ``bucket``). Created via s3fs if missing.
+2. Creates the LakeFS repository (``LAKEFS_REPO``, default ``repo``) with
    ``main`` as its default branch and the storage namespace pointing
    into the RustFS bucket.
 3. Uploads every CSV under ``data/raw/`` to ``main`` and commits.
@@ -97,7 +97,8 @@ def _ensure_repository(client: Client) -> lakefs.Repository:
             exist_ok=True,
         )
         print(
-            f"Repository {_LAKEFS_REPO!r} ready (namespace={_LAKEFS_STORAGE_NAMESPACE})."
+            f"Repository {_LAKEFS_REPO!r} ready "
+            f"(namespace={_LAKEFS_STORAGE_NAMESPACE})."
         )
     except ConflictException:
         print(f"Repository {_LAKEFS_REPO!r} already exists.")
@@ -133,7 +134,8 @@ def _ensure_output_branch(repo: lakefs.Repository) -> None:
             source_reference=_LAKEFS_SOURCE_BRANCH
         )
         print(
-            f"Created branch {_LAKEFS_OUTPUT_BRANCH!r} from {_LAKEFS_SOURCE_BRANCH!r}."
+            f"Created branch {_LAKEFS_OUTPUT_BRANCH!r} "
+            f"from {_LAKEFS_SOURCE_BRANCH!r}."
         )
     except ConflictException:
         print(f"Branch {_LAKEFS_OUTPUT_BRANCH!r} already exists.")
@@ -152,14 +154,16 @@ def _protect_main(client: Client) -> None:
             repository=_LAKEFS_REPO, branch_protection_rule=rules
         )
         print(
-            f"Branch protection set: direct writes to {_LAKEFS_SOURCE_BRANCH!r} "
-            f"are blocked; updates require a merge from {_LAKEFS_OUTPUT_BRANCH!r}."
+            f"Branch protection set: direct writes to "
+            f"{_LAKEFS_SOURCE_BRANCH!r} are blocked; updates require a "
+            f"merge from {_LAKEFS_OUTPUT_BRANCH!r}."
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"Warning: could not apply branch protection: {exc}")
 
 
 def main() -> int:
+    """Run the full LakeFS bootstrap end to end and print a summary."""
     _ensure_rustfs_bucket()
     client = _client()
     repo = _ensure_repository(client)

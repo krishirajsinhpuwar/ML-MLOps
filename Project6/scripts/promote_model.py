@@ -58,6 +58,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Resolve the version to promote and move the ``production`` alias."""
     args = _parse_args()
     mlflow.set_tracking_uri(_MLFLOW_TRACKING_URI)
     client = mlflow.MlflowClient()
@@ -66,9 +67,7 @@ def main() -> int:
         version = args.version
         source = f"--version {version}"
     else:
-        mv = client.get_model_version_by_alias(
-            args.model_name, SOURCE_ALIAS
-        )
+        mv = client.get_model_version_by_alias(args.model_name, SOURCE_ALIAS)
         version = mv.version
         source = f"alias '{SOURCE_ALIAS}'"
 

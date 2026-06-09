@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Start the RustFS (S3-compatible object store) container.
+# Backs STORAGE_BACKEND=s3 outputs and the LakeFS blockstore.
+# Config from .env (RUSTFS_* vars); S3 API on :9000, web UI on :9001.
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then

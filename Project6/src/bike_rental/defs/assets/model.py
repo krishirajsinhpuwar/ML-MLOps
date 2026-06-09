@@ -210,7 +210,9 @@ def trained_model(
 
         client = mlflow.MlflowClient()
         latest_version = max(
-            client.search_model_versions(f"name='{_MLFLOW_REGISTERED_MODEL_NAME}'"),
+            client.search_model_versions(
+                f"name='{_MLFLOW_REGISTERED_MODEL_NAME}'"
+            ),
             key=lambda v: int(v.version),
         )
         client.set_registered_model_alias(

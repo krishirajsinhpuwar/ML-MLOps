@@ -3,18 +3,17 @@
 Encapsulates the LakeFS endpoint, credentials, repository, and the two
 branches used by the pipeline:
 
-- ``source_branch`` (e.g. ``main``) — protected branch the pipeline reads
-  raw inputs from. Each training run records the head commit of this
-  branch in MLflow so the data version that produced a model is always
-  traceable.
-- ``output_branch`` (e.g. ``staging``) — branch the pipeline writes
+- ``source_branch`` (default ``main``) — protected branch the pipeline
+  reads raw inputs from. Each training run records the head commit of
+  this branch in MLflow so the data version that produced a model is
+  always traceable.
+- ``output_branch`` (default ``output``) — branch the pipeline writes
   derived assets (processed CSVs, the model pickle) to. A commit is
-  created at the end of each pipeline run with the Dagster run id +
-  MLflow run id in the commit metadata, so derived assets are versioned
-  alongside the model that produced them. Merging ``staging`` into
-  ``main`` is an explicit, gated step (LakeFS branch-protection rules
-  configured by ``scripts/lakefs_init.py`` block direct writes to
-  ``main``).
+  created at the end of each pipeline run with the Dagster run id in the
+  commit metadata, so derived assets are versioned alongside the model
+  that produced them. Merging ``output`` into ``main`` is an explicit,
+  gated step (LakeFS branch-protection rules configured by
+  ``scripts/lakefs_init.py`` block direct writes to ``main``).
 
 When ``enabled`` is ``False`` the resource is a no-op: methods return
 ``None`` and ``storage_options()`` is empty. This lets the rest of the
@@ -37,15 +36,14 @@ class LakeFSResource(ConfigurableResource):
     Attributes
     ----------
     enabled : bool
-        Whether this pipeline run is using the LakeFS backend.
-    endpoint : str
-        LakeFS server URL, e.g. ``http://localhost:8000``.
-    access_key : str
-        LakeFS access key id.
-    secret_key : str
-        LakeFS secret access key.
+        Whether this pipeline run is using the LakeFS backend. When
+        ``False`` every method is a no-op (see module docstring).
+    storage_options : dict[str, Any] | None
+        lakefs-spec connection keys (``host`` / ``username`` /
+        ``password``) — the same mapping the IO managers forward to
+        fsspec. Used to build the LakeFS SDK client.
     repo : str
-        LakeFS repository name (e.g. ``bike-rental``).
+        LakeFS repository name (e.g. ``repo``).
     source_branch : str
         Branch raw inputs are read from. Protected.
     output_branch : str
@@ -109,7 +107,7 @@ class LakeFSResource(ConfigurableResource):
         # version, so we capture both shapes by re-reading the head.
         try:
             branch.commit(message=message, metadata=metadata)
-        except Exception as exc:  # noqa: BLE001 — surface, don't swallow
+        except Exception as exc:
             # Empty-commit errors are not fatal; everything else should be.
             if "no changes" not in str(exc).lower():
                 raise

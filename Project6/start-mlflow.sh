@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Start the MLflow tracking server + model registry. The artifact store
+# is chosen from STORAGE_BACKEND (local file / S3 / LakeFS); the backend
+# store defaults to a local SQLite db. Config from .env; UI on :5000.
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then

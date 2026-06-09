@@ -15,18 +15,21 @@ URIs are used. Promoting a new version into production is therefore the
 single source of truth for what this API serves (see
 ``scripts/promote_model.py``).
 
+The served alias is fixed to ``production`` (the ``MODEL_ALIAS`` constant):
+this service exists to serve the production model, and promotion is the
+only control over what it loads.
+
 Environment variables
 ---------------------
 ``MLFLOW_TRACKING_URI``           — MLflow tracking server URI.
 ``MLFLOW_REGISTERED_MODEL_NAME``  — name of the registered model.
-``MLFLOW_MODEL_ALIAS``            — alias to load (default ``production``).
 """
 
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from os import getenv
 from pathlib import Path
 from typing import Any
@@ -65,7 +68,8 @@ def _load_model() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001 — required FastAPI signature
+async def lifespan(app: FastAPI):
+    """Load the production model on startup; release it on shutdown."""
     _load_model()
     yield
     _state.clear()
@@ -81,7 +85,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-class WeatherCondition(str, Enum):
+
+class WeatherCondition(StrEnum):
+    """Weather conditions accepted by the prediction endpoint."""
+
     CLEAR = "clear"
     CLOUDS = "clouds"
     LIGHT_RAIN = "light_rain"
@@ -107,7 +114,8 @@ class PredictRequest(BaseModel):
     conditions: WeatherCondition = Field(
         ...,
         description=(
-            "Weather conditions. One of 'clear', 'clouds', 'light_rain' or 'heavy_rain'."
+            "Weather conditions. One of 'clear', 'clouds', "
+            "'light_rain' or 'heavy_rain'."
         ),
         examples=["clear", "clouds", "light_rain", "heavy_rain"],
     )
@@ -126,12 +134,15 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
+    """Predicted demand plus the registry coordinates of the served model."""
+
     predicted_total_count: int = Field(
         ..., description="Predicted hourly rentals, rounded and clamped to ≥0."
     )
     model_name: str
     model_version: str
     model_alias: str
+
 
 def _normalize_condition(condition: WeatherCondition) -> str:
     if condition in {
@@ -141,6 +152,7 @@ def _normalize_condition(condition: WeatherCondition) -> str:
         return "rain"
 
     return condition.value
+
 
 def _features_for(req: PredictRequest) -> pd.DataFrame:
     """Mirror the engineering in ``defs/assets/features.py`` for one row.
@@ -179,11 +191,13 @@ def _features_for(req: PredictRequest) -> pd.DataFrame:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    """Liveness probe reporting whether a model is currently loaded."""
     return {"status": "ok", "model_loaded": "model" in _state}
 
 
 @app.get("/model")
 def model_info() -> dict[str, Any]:
+    """Return the registry coordinates of the currently served model."""
     if "model" not in _state:
         raise HTTPException(503, "Model not loaded")
     return {
@@ -198,6 +212,7 @@ def model_info() -> dict[str, Any]:
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
+    """Predict demand for one hour, clamped to a non-negative integer."""
     model = _state.get("model")
     if model is None:
         raise HTTPException(503, "Model not loaded")
