@@ -33,6 +33,8 @@ it in the operational components a production ML system needs:
    promote_model.py   ── moves the `candidate` alias ──►  `production`
 
    FastAPI /predict   ── loads models:/<name>@production from MLflow ──►  demand forecast
+
+   lakefs_source_data_sensor ── watches `main` head; retrains on change ──►  (bonus)
 ```
 
 The pipeline can read/write three storage backends, selected by the
@@ -97,6 +99,13 @@ In the Dagster UI, materialize all assets. This cleans the data, engineers
 features, trains the XGBoost model, logs the run to MLflow (registering a new
 model version with the `candidate` alias), and commits the derived assets to the
 LakeFS `output` branch.
+
+To run the whole pipeline headlessly instead (e.g. in CI or a smoke test),
+skip the UI and materialize directly:
+
+```bash
+uv run dagster asset materialize --select '*' -m bike_rental.definitions
+```
 
 ### 5. Promote the model to production
 
@@ -214,6 +223,66 @@ model?* (the commit SHA tagged on the MLflow run) and *how is `main` protected?*
 
 ---
 
+## Automated retraining (bonus)
+
+The pipeline can run itself: a Dagster **sensor** watches the LakeFS source
+branch and launches a full retrain whenever the data changes — a hands-off,
+event-driven pipeline.
+
+- **`retrain_all_assets`** ([jobs.py](src/bike_rental/defs/jobs.py)) —
+  a job that materializes the entire asset graph (raw → features → model →
+  versioned outputs), so each run rebuilds and re-versions everything together.
+- **`lakefs_source_data_sensor`** ([sensors.py](src/bike_rental/defs/sensors.py))
+  — polls the head commit of the protected `main` branch (~every 30 s) and
+  launches `retrain_all_assets` when it advances.
+
+A **sensor** (not a schedule) is the right primitive here: the trigger is an
+*event* ("the data changed"), not a clock.
+
+### How change detection works
+
+The branch head SHA is the canonical "data changed" signal in a Git-like store.
+The sensor tracks it two ways:
+
+- **Cursor** — the last SHA the sensor acted on. Each tick compares the current
+  head against it and skips when unchanged, so an idle repo costs one cheap API
+  call per tick.
+- **Run key** — each run request is keyed by the commit SHA, so Dagster launches
+  at most one run per data version even if the cursor resets or the daemon
+  restarts.
+
+The retrain job reads `main` but writes and commits only to `output`, so a run
+never advances `main` — there is no feedback loop. Every resulting MLflow run is
+still tagged with the source commit SHA, so reproducibility holds.
+
+### Enabling it
+
+The sensor only acts under the `lakefs` backend, and ships **stopped** so
+`dg dev` never trains unprompted. Turn it on either way:
+
+- set `RETRAIN_ON_DATA_CHANGE=true` in `.env` (the sensor then ships running), or
+- toggle it on in the Dagster UI (**Automation → Sensors**).
+
+The Dagster daemon must be running for sensors to evaluate — `dg dev` starts it.
+
+### Trying it out
+
+With the stack up, `lakefs_init.py` run, `dg dev` running, and the sensor
+enabled, simulate new source data landing in the repo:
+
+```bash
+uv run python scripts/simulate_data_change.py --rows 50
+```
+
+This appends trip records on a short-lived ingestion branch and **merges** them
+into the protected `main` (a direct write would be blocked — see
+[Data & asset versioning](#data--asset-versioning-lakefs)). Within one sensor
+interval the daemon detects the new `main` head and launches a retrain run; the
+new candidate appears in MLflow tagged with that commit SHA. Promote it with
+`scripts/promote_model.py` to serve it.
+
+---
+
 ## Configuration
 
 Configuration is read from the `.env` file at the repo root (loaded by the app,
@@ -235,6 +304,7 @@ local-development setup (`admin`/`admin` credentials, all services on
 | `LAKEFS_ENDPOINT_URL` | `http://localhost:8000` | LakeFS server |
 | `RUSTFS_BUCKET` | `bucket` | Object-store bucket (backs LakeFS + `s3` mode) |
 | `RUSTFS_ENDPOINT_URL` | `http://localhost:9000` | RustFS S3 endpoint |
+| `RETRAIN_ON_DATA_CHANGE` | `false` | Ship the auto-retrain sensor running (bonus) |
 
 (Defaults shown are the code-level fallbacks; the committed `.env` may set
 different values, e.g. `STORAGE_BACKEND=lakefs`.)
@@ -265,9 +335,10 @@ so the asset graph stays identical across backends.
 │   └── main.py                     # FastAPI service (loads @production model)
 ├── scripts/
 │   ├── lakefs_init.py              # one-time LakeFS repo/branch/protection bootstrap
-│   └── promote_model.py            # move `candidate` → `production` alias
+│   ├── promote_model.py            # move `candidate` → `production` alias
+│   └── simulate_data_change.py     # (bonus) merge new raw data into main to trigger retrain
 ├── src/bike_rental/
-│   ├── definitions.py              # Dagster Definitions: wires assets + resources
+│   ├── definitions.py              # Dagster Definitions: wires assets + jobs + sensors + resources
 │   └── defs/
 │       ├── assets/                 # one module per asset in the graph
 │       │   ├── hourly.py           #  → hourly_rentals
@@ -277,6 +348,8 @@ so the asset graph stays identical across backends.
 │       │   ├── features.py         #  → engineered_features
 │       │   ├── model.py            #  → trained_model (+ MLflow logging/registry)
 │       │   └── versioned_outputs.py#  → commits derived assets to LakeFS
+│       ├── jobs.py                 # retrain_all_assets job (materializes the graph)
+│       ├── sensors.py              # lakefs_source_data_sensor (bonus: auto-retrain)
 │       ├── io_managers/            # CSV + pickle IO managers (local / S3 / LakeFS)
 │       └── resources/              # DataConfig, LakeFSResource, MLflowResource
 ├── notebooks/                      # EDA + modelling exploration (00–03)

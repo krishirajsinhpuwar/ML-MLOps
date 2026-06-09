@@ -32,9 +32,11 @@ from bike_rental.defs.assets import (
 )
 from bike_rental.defs.io_managers.csv_io_manager import CSVIOManager
 from bike_rental.defs.io_managers.pickle_io_manager import PickleIOManager
+from bike_rental.defs.jobs import retrain_job
 from bike_rental.defs.resources.config import DataConfig
 from bike_rental.defs.resources.lakefs import LakeFSResource
 from bike_rental.defs.resources.mlflow import MLflowResource
+from bike_rental.defs.sensors import lakefs_source_data_sensor
 
 # Resolve paths relative to this file so the pipeline works from any cwd
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -55,7 +57,7 @@ _RUSTFS_SECRET_KEY = getenv("RUSTFS_SECRET_KEY", "admin")
 _LAKEFS_REPO = getenv("LAKEFS_REPO", "repo")
 _LAKEFS_SOURCE_BRANCH = getenv("LAKEFS_SOURCE_BRANCH", "main")
 _LAKEFS_OUTPUT_BRANCH = getenv("LAKEFS_OUTPUT_BRANCH", "output")
-_LAKEFS_ENDPOINT = getenv("LAKEFS_ENDPOINT_URL", "http://localhost:8000")
+_LAKEFS_ENDPOINT_URL = getenv("LAKEFS_ENDPOINT_URL", "http://localhost:8000")
 _LAKEFS_ACCESS_KEY = getenv("LAKEFS_ACCESS_KEY", "admin")
 _LAKEFS_SECRET_KEY = getenv("LAKEFS_SECRET_KEY", "admin")
 
@@ -87,7 +89,7 @@ def _build_config() -> tuple[str, str, dict | None]:
             f"lakefs://{_LAKEFS_REPO}/{_LAKEFS_OUTPUT_BRANCH}/processed"
         )
         storage_options = {
-            "host": _LAKEFS_ENDPOINT,
+            "host": _LAKEFS_ENDPOINT_URL,
             "username": _LAKEFS_ACCESS_KEY,
             "password": _LAKEFS_SECRET_KEY,
         }
@@ -111,11 +113,15 @@ def defs() -> Definitions:
     paths and storage options, and a custom ``CSVIOManager`` that handles
     reading/writing CSVs to the configured backend.
 
+    ``retrain_job`` materializes the whole graph; ``lakefs_source_data_sensor``
+    (the bonus) launches that job automatically when the LakeFS source data
+    changes — see ``defs/sensors.py``.
+
     Returns
     -------
-        ``dagster.Definitions`` object with all assets and resources wired
-        together. This is the entry point for Dagster to discover the
-        pipeline components.
+        ``dagster.Definitions`` object with all assets, jobs, sensors, and
+        resources wired together. This is the entry point for Dagster to
+        discover the pipeline components.
 
     """
     return Definitions(
@@ -128,6 +134,8 @@ def defs() -> Definitions:
             trained_model,
             versioned_outputs,
         ],
+        jobs=[retrain_job],
+        sensors=[lakefs_source_data_sensor],
         resources={
             "data_config": DataConfig(
                 data_dir=_DATA_DIR,
