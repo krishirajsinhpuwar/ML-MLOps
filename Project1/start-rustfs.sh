@@ -14,8 +14,8 @@ fi
 : "${RUSTFS_LOGS_DIR:=logs}"
 : "${ENDPOINT_PORT:=9000}"
 : "${WEB_SERVER_UI_PORT:=9001}"
-: "${RUSTFS_ACCESS_KEY:=rustfsadmin}"
-: "${RUSTFS_SECRET_KEY:=rustfsadmin}"
+: "${RUSTFS_ACCESS_KEY:=admin}"
+: "${RUSTFS_SECRET_KEY:=admin}"
 
 # Ensure directories exist
 mkdir -p "$RUSTFS_STORAGE_DIR"

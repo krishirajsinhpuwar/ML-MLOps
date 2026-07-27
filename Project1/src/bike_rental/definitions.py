@@ -47,8 +47,8 @@ def _build_config() -> tuple[str, dict | None]:
     if backend == "s3":
         output_dir = f"s3://{getenv('RUSTFS_BUCKET', 'assets')}"
         storage_options = {
-            "key": getenv("RUSTFS_ACCESS_KEY", "rustfsadmin"),
-            "secret": getenv("RUSTFS_SECRET_KEY", "rustfsadmin"),
+            "key": getenv("RUSTFS_ACCESS_KEY", "admin"),
+            "secret": getenv("RUSTFS_SECRET_KEY", "admin"),
             "client_kwargs": {
                 "endpoint_url": getenv(
                     "RUSTFS_ENDPOINT_URL", "http://localhost:9000"

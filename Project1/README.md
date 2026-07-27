@@ -114,8 +114,8 @@ The destination for processed outputs is chosen at startup via the `STORAGE_BACK
 For the `s3` backend the following environment variables are honored (defaults in parentheses):
 
 - `RUSTFS_BUCKET` (`assets`)
-- `RUSTFS_ACCESS_KEY` (`rustfsadmin`)
-- `RUSTFS_SECRET_KEY` (`rustfsadmin`)
+- `RUSTFS_ACCESS_KEY` (`admin`)
+- `RUSTFS_SECRET_KEY` (`admin`)
 - `RUSTFS_ENDPOINT_URL` (`http://localhost:9000`)
 
 A local RustFS container that serves [`data/output-s3/`](data/output-s3/) as an S3 endpoint on port 9000 can be started with:
