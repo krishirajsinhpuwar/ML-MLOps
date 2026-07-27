@@ -16,7 +16,9 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_WEATHER = PROJECT_ROOT / "data" / "raw" / "weather.csv"
-DEFAULT_FINAL_LOCAL = PROJECT_ROOT / "data" / "output-local" / "final_dataset.csv"
+DEFAULT_FINAL_LOCAL = (
+    PROJECT_ROOT / "data" / "output-local" / "final_dataset.csv"
+)
 
 YEARS = (2011, 2012)
 EXPECTED_START = pd.Timestamp("2011-01-01 00:00:00")
@@ -116,7 +118,9 @@ def _summarize_gaps(timestamps: pd.Series, label: str) -> None:
             print(f"    - {t}")
 
 
-def _contiguous_ranges(idx: pd.DatetimeIndex) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+def _contiguous_ranges(
+    idx: pd.DatetimeIndex,
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     if len(idx) == 0:
         return []
     idx = idx.sort_values()
@@ -135,7 +139,9 @@ def _contiguous_ranges(idx: pd.DatetimeIndex) -> list[tuple[pd.Timestamp, pd.Tim
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--weather", default=str(DEFAULT_WEATHER))
-    parser.add_argument("--final", default=None, help="Path or s3:// URI for final_dataset.csv")
+    parser.add_argument(
+        "--final", default=None, help="Path or s3:// URI for final_dataset.csv"
+    )
     args = parser.parse_args()
 
     weather = pd.read_csv(args.weather, parse_dates=["datetime"])

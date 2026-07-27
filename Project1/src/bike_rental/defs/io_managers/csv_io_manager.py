@@ -8,8 +8,10 @@ and endpoint used by the underlying s3fs client.
 """
 
 from __future__ import annotations
-from typing import Any
+
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 from dagster import ConfigurableIOManager, InputContext, OutputContext
 
@@ -65,7 +67,9 @@ class CSVIOManager(ConfigurableIOManager):
         path = self._get_path(context)
         if not _is_s3_uri(path):
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        obj.to_csv(path, index=False, storage_options=self._storage_options_for(path))
+        obj.to_csv(
+            path, index=False, storage_options=self._storage_options_for(path)
+        )
         context.log.info(f"Wrote {len(obj)} rows to {path}")
 
     def load_input(self, context: InputContext) -> pd.DataFrame:

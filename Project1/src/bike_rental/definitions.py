@@ -10,19 +10,20 @@ variable:
   ``RUSTFS_*`` environment variables.
 """
 
-from dotenv import load_dotenv
 from os import getenv
 from pathlib import Path
-from dagster import Definitions
 
-from pipeline.assets import (
+from dagster import Definitions
+from dotenv import load_dotenv
+
+from bike_rental.defs.assets import (
+    final_dataset,
     hourly_rentals,
     rentals_with_time_features,
     rentals_with_weather,
-    final_dataset,
 )
-from pipeline.io_managers.csv_io_manager import CSVIOManager
-from pipeline.resources.config import DataConfig
+from bike_rental.defs.io_managers.csv_io_manager import CSVIOManager
+from bike_rental.defs.resources.config import DataConfig
 
 # Resolve paths relative to this file so the pipeline works from any cwd
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -42,7 +43,6 @@ def _build_config() -> tuple[str, dict | None]:
         is ``None`` for the local backend and a pandas-compatible mapping
         for the S3 backend.
     """
-
     backend = getenv("STORAGE_BACKEND", "local").lower()
     if backend == "s3":
         output_dir = f"s3://{getenv('RUSTFS_BUCKET', 'assets')}"
@@ -50,7 +50,9 @@ def _build_config() -> tuple[str, dict | None]:
             "key": getenv("RUSTFS_ACCESS_KEY", "rustfsadmin"),
             "secret": getenv("RUSTFS_SECRET_KEY", "rustfsadmin"),
             "client_kwargs": {
-                "endpoint_url": getenv("RUSTFS_ENDPOINT_URL", "http://localhost:9000"),
+                "endpoint_url": getenv(
+                    "RUSTFS_ENDPOINT_URL", "http://localhost:9000"
+                ),
             },
         }
     else:

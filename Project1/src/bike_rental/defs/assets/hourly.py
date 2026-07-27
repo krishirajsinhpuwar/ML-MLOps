@@ -3,7 +3,7 @@
 import pandas as pd
 from dagster import asset
 
-from pipeline.resources.config import DataConfig
+from bike_rental.defs.resources.config import DataConfig
 
 
 @asset(required_resource_keys={"data_config"})
@@ -49,16 +49,20 @@ def hourly_rentals(context) -> pd.DataFrame:
     direct["date_hour"] = direct["datetime"].dt.floor("h")
 
     registered_hourly = (
-        registered.groupby("date_hour").size().reset_index(name="registered_count")
+        registered.groupby("date_hour")
+        .size()
+        .reset_index(name="registered_count")
     )
-    direct_hourly = direct.groupby("date_hour").size().reset_index(name="direct_count")
+    direct_hourly = (
+        direct.groupby("date_hour").size().reset_index(name="direct_count")
+    )
 
     registered_hourly.rename(columns={"date_hour": "datetime"}, inplace=True)
     direct_hourly.rename(columns={"date_hour": "datetime"}, inplace=True)
 
-    df = pd.merge(registered_hourly, direct_hourly, on="datetime", how="outer").fillna(
-        0
-    )
+    df = pd.merge(
+        registered_hourly, direct_hourly, on="datetime", how="outer"
+    ).fillna(0)
 
     df["registered_count"] = df["registered_count"].astype(int)
     df["direct_count"] = df["direct_count"].astype(int)

@@ -3,7 +3,7 @@
 import pandas as pd
 from dagster import asset
 
-from pipeline.resources.config import DataConfig
+from bike_rental.defs.resources.config import DataConfig
 
 
 @asset(required_resource_keys={"data_config"})
@@ -41,7 +41,9 @@ def rentals_with_weather(
         storage_options=cfg.storage_options_for(weather_path),
     )
 
-    df = pd.merge(rentals_with_time_features, weather, on="datetime", how="left")
+    df = pd.merge(
+        rentals_with_time_features, weather, on="datetime", how="left"
+    )
 
     context.log.info(
         f"Weather data merged. Sample values:\n{df.head()}\nInfo:\n{df.info()}"

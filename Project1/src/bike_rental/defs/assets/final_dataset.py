@@ -3,7 +3,7 @@
 import pandas as pd
 from dagster import asset
 
-from pipeline.resources.config import DataConfig
+from bike_rental.defs.resources.config import DataConfig
 
 
 @asset(required_resource_keys={"data_config"})

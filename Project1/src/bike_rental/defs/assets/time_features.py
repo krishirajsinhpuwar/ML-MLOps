@@ -5,7 +5,9 @@ from dagster import asset
 
 
 @asset
-def rentals_with_time_features(context, hourly_rentals: pd.DataFrame) -> pd.DataFrame:
+def rentals_with_time_features(
+    context, hourly_rentals: pd.DataFrame
+) -> pd.DataFrame:
     """Engineer temporal features from the ``datetime`` column.
 
     Adds columns that expose categorical time signals useful for machine
