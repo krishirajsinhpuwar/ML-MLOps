@@ -11,6 +11,33 @@ S3-compatible object store (RustFS / MinIO / AWS S3).
 The asset graph is defined in [src/bike_rental/definitions.py](src/bike_rental/definitions.py)
 and runs in this order:
 
+```mermaid
+flowchart LR
+    R1[(data/raw/registered_bike_rentals.csv)]
+    R2[(data/raw/direct_pickup_bike_rentals.csv)]
+    W[(data/raw/weather.csv)]
+    H[(data/raw/holidays.csv)]
+
+    A1[hourly_rentals<br/><i>floor to hour, outer-merge, sum to total_count</i>]
+    A2[rentals_with_time_features<br/><i>hour, day_of_month, month, year, week,<br/>day_of_week, is_weekend, date</i>]
+    A3[rentals_with_weather<br/><i>left-join weather on datetime</i>]
+    A4[final_dataset<br/><i>left-join holidays, add is_holiday flag</i>]
+    A5[engineered_features<br/><i>hour_sin/hour_cos, is_peak_hour,<br/>lag_1h/lag_24h/lag_168h</i>]
+    A6[trained_model<br/><i>XGBoost + log1p target,<br/>chronological 80/20 split</i>]
+
+    OUT[(data/output-local/*.csv<br/>or s3://&lt;bucket&gt;/*.csv)]
+    MDL[(trained_model.pkl)]
+
+    R1 --> A1
+    R2 --> A1
+    A1 --> A2 --> A3 --> A4 --> A5 --> A6
+    W --> A3
+    H --> A4
+    A5 --> OUT
+    A6 --> MDL
+```
+
+
 1. **[`hourly_rentals`](src/bike_rental/defs/assets/hourly.py)** — loads
    `registered_bike_rentals.csv` and `direct_pickup_bike_rentals.csv`,
    floors each trip to the hour, outer-merges the two sources, and sums

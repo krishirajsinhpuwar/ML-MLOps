@@ -20,21 +20,29 @@ it in the operational components a production ML system needs:
 
 ## Architecture at a glance
 
-```
- raw CSVs ──► [ Dagster pipeline ]──────────────────────────────►  trained_model
- (LakeFS       hourly_rentals → time_features → weather →            (XGBoost +
-  main          final_dataset → engineered_features → trained_model    log1p)
-  branch)                                          │
-                                                   ├─► MLflow run  (params, metrics,
-                                                   │   + registry    artifact, alias=candidate)
-                                                   └─► LakeFS commit (output branch:
-                                                       processed CSVs + model pickle)
+```mermaid
+flowchart TB
+    RAW[(raw CSVs<br/>LakeFS main branch)]
 
-   promote_model.py   ── moves the `candidate` alias ──►  `production`
+    subgraph DAG["Dagster pipeline"]
+        direction LR
+        A1[hourly_rentals] --> A2[rentals_with_time_features] --> A3[rentals_with_weather]
+        A3 --> A4[final_dataset] --> A5[engineered_features] --> A6[trained_model<br/><i>XGBoost + log1p</i>]
+    end
 
-   FastAPI /predict   ── loads models:/<name>@production from MLflow ──►  demand forecast
+    MLF[MLflow run + registry<br/><i>params, metrics, artifact<br/>registered with alias=candidate</i>]
+    VO[versioned_outputs<br/><i>commits processed CSVs + model pickle<br/>to the LakeFS output branch</i>]
+    PROM["promote_model.py<br/><i>moves the candidate alias → production</i>"]
+    API["FastAPI /predict<br/><i>loads models:/&lt;name&gt;@production</i>"]
+    FC[demand forecast]
+    SENSOR["lakefs_source_data_sensor <i>(bonus)</i><br/><i>watches the main head; retrains on change</i>"]
 
-   lakefs_source_data_sensor ── watches `main` head; retrains on change ──►  (bonus)
+    RAW --> A1
+    A6 --> MLF
+    A6 --> VO
+    MLF --> PROM --> API --> FC
+    RAW -.->|head SHA advances| SENSOR
+    SENSOR -.->|launches retrain_all_assets| DAG
 ```
 
 The pipeline can read/write three storage backends, selected by the

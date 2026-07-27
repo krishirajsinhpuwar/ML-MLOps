@@ -19,6 +19,19 @@ pipeline to run.
 
 Run them in this order — Part 1a writes the cleaned CSV that the other two read.
 
+```mermaid
+flowchart LR
+    RAW[(data/titanic.csv<br/>887 rows × 8 cols)]
+    P1A[part_1a<br/><i>inspection, data-quality checks,<br/>visual exploration, preparation</i>]
+    CLEAN[(data/titanic_clean.csv<br/>817 rows × 6 cols)]
+    P1B[part_1b<br/><i>split + standardize, scikit-learn<br/>LogisticRegression, five metrics</i>]
+    P2[part_2<br/><i>sigmoid, BCE, gradients, gradient descent<br/>in NumPy — then compared to scikit-learn</i>]
+
+    RAW --> P1A --> CLEAN
+    CLEAN --> P1B
+    CLEAN --> P2
+```
+
 | Notebook | Contents |
 | --- | --- |
 | [notebooks/titanic_survival_part_1a.ipynb](notebooks/titanic_survival_part_1a.ipynb) | Loading & inspection, data-quality checks, visual exploration, preparation → writes `data/titanic_clean.csv` |
