@@ -1,6 +1,6 @@
-# LEVEL3 — ML & MLOps
+# ML & MLOps
 
-Coursework repository for the LEVEL3 ML/MLOps track. Each numbered directory is a
+Repository for the ML/MLOps projects. Each numbered directory is a
 self-contained project with its own brief, dependencies, and README — from raw-data
 preprocessing through model training to a versioned, served, self-retraining
 pipeline.
