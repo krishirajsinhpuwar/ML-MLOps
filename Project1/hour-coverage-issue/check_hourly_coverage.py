@@ -1,8 +1,9 @@
-"""Check that weather.csv and final_dataset.csv have one row per hour for 2011-2012.
+"""Check weather.csv and final_dataset.csv have one row per hour for 2011-2012.
 
 Usage:
-    python scripts/check_hourly_coverage.py
-    python scripts/check_hourly_coverage.py --weather path/to/weather.csv --final path/to/final_dataset.csv
+    python hour-coverage-issue/check_hourly_coverage.py
+    python hour-coverage-issue/check_hourly_coverage.py \
+        --weather path/to/weather.csv --final path/to/final_dataset.csv
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ def _load_env(env_path: Path) -> dict[str, str]:
 
 
 def _read_final_dataset(explicit: str | None) -> tuple[pd.DataFrame, str]:
-    """Return (df, source_description). Try explicit path, then local, then S3 (rustfs)."""
+    """Return (df, source). Tries explicit path, then local, then S3."""
     if explicit:
         return pd.read_csv(explicit, parse_dates=["datetime"]), explicit
 
@@ -137,6 +138,7 @@ def _contiguous_ranges(
 
 
 def main() -> int:
+    """Run the hourly-coverage check against weather and final dataset."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--weather", default=str(DEFAULT_WEATHER))
     parser.add_argument(

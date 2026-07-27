@@ -1,4 +1,4 @@
-"""Asset: load and aggregate booked and direct rental records to hourly totals."""
+"""Asset: load and aggregate booked and direct rentals to hourly totals."""
 
 import pandas as pd
 from dagster import asset
@@ -71,7 +71,8 @@ def hourly_rentals(context) -> pd.DataFrame:
     df = df.sort_values("datetime").reset_index(drop=True)
 
     context.log.info(
-        f"Hourly rentals loaded and aggregated. Sample values:\n{df.head()}\nInfo:\n{df.info()}"
+        f"Hourly rentals loaded and aggregated. Sample values:\n"
+        f"{df.head()}\nInfo:\n{df.info()}"
     )
 
     return df

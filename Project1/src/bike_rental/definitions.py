@@ -26,7 +26,7 @@ from bike_rental.defs.io_managers.csv_io_manager import CSVIOManager
 from bike_rental.defs.resources.config import DataConfig
 
 # Resolve paths relative to this file so the pipeline works from any cwd
-_PROJECT_ROOT = Path(__file__).parent.parent
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # Load environment variables from .env file (if it exists)
 load_dotenv(_PROJECT_ROOT / ".env")
@@ -35,7 +35,7 @@ _DATA_DIR = str(_PROJECT_ROOT / getenv("RAW_DATA_DIR", "data/raw"))
 
 
 def _build_config() -> tuple[str, dict | None]:
-    """Resolve the (output_dir, storage_options) pair based on environment variables.
+    """Resolve the (output_dir, storage_options) pair from env variables.
 
     Returns
     -------

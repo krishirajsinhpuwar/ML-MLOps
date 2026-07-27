@@ -75,17 +75,21 @@ Project1/
 │   └── output-s3/            # RustFS container data dir (served as s3://)
 ├── notebooks/
 │   └── processing_clean_data.ipynb   # exploratory counterpart to the pipeline
-├── pipeline/
-│   ├── assets/               # one file per asset — pure pandas transforms
-│   │   ├── hourly.py
-│   │   ├── time_features.py
-│   │   ├── weather.py
-│   │   └── final_dataset.py
-│   ├── io_managers/
-│   │   └── csv_io_manager.py # reads/writes DataFrames as CSV between assets
-│   ├── resources/
-│   │   └── config.py         # DataConfig — locations for raw and processed data
-│   └── definitions.py        # wires assets, resources, and IO manager
+├── src/
+│   └── bike_rental/
+│       ├── definitions.py    # wires assets, resources, and IO manager
+│       └── defs/
+│           ├── assets/               # one file per asset — pure pandas transforms
+│           │   ├── hourly.py
+│           │   ├── time_features.py
+│           │   ├── weather.py
+│           │   └── final_dataset.py
+│           ├── io_managers/
+│           │   └── csv_io_manager.py # reads/writes DataFrames as CSV between assets
+│           └── resources/
+│               └── config.py         # DataConfig — locations for raw and processed data
+├── hour-coverage-issue/
+│   └── check_hourly_coverage.py      # standalone script: audits hourly gaps in weather/final data
 ├── descriptions/             # project brief PDFs
 ├── start-rustfs.sh           # launches a local RustFS S3-compatible backend
 ├── pyproject.toml
@@ -94,13 +98,13 @@ Project1/
 
 ### Separation of responsibilities
 
-- **Assets** ([`pipeline/assets/`](pipeline/assets/)) contain the data logic only. They take DataFrames in and return DataFrames out.
-- **Resources** ([`pipeline/resources/config.py`](pipeline/resources/config.py)) hold configuration — the raw and processed locations (local path or S3 URI) plus `storage_options` — injected into assets that need them.
-- **IO managers** ([`pipeline/io_managers/csv_io_manager.py`](pipeline/io_managers/csv_io_manager.py)) handle persistence. The same manager writes to a local directory or to an S3-compatible bucket depending on the configured `output_dir`.
+- **Assets** ([`src/bike_rental/defs/assets/`](src/bike_rental/defs/assets/)) contain the data logic only. They take DataFrames in and return DataFrames out.
+- **Resources** ([`src/bike_rental/defs/resources/config.py`](src/bike_rental/defs/resources/config.py)) hold configuration — the raw and processed locations (local path or S3 URI) plus `storage_options` — injected into assets that need them.
+- **IO managers** ([`src/bike_rental/defs/io_managers/csv_io_manager.py`](src/bike_rental/defs/io_managers/csv_io_manager.py)) handle persistence. The same manager writes to a local directory or to an S3-compatible bucket depending on the configured `output_dir`.
 
 ## Storage Backend
 
-The destination for processed outputs is chosen at startup via the `STORAGE_BACKEND` environment variable (read by [`pipeline/definitions.py`](pipeline/definitions.py)). Raw inputs always come from [`data/raw/`](data/raw/).
+The destination for processed outputs is chosen at startup via the `STORAGE_BACKEND` environment variable (read by [`src/bike_rental/definitions.py`](src/bike_rental/definitions.py)). Raw inputs always come from [`data/raw/`](data/raw/).
 
 | `STORAGE_BACKEND` | Output destination | Notes |
 | --- | --- | --- |
@@ -146,7 +150,7 @@ bash start-rustfs.sh
 Launch the Dagster UI and materialize all assets from there:
 
 ```bash
-uv run dagster dev -m pipeline.definitions
+uv run dagster dev -m bike_rental.definitions
 ```
 
 Open the printed URL, select all four assets, and click **Materialize**. Outputs land in `data/output-local/` (or the configured S3 bucket when `STORAGE_BACKEND=s3`).
@@ -154,7 +158,7 @@ Open the printed URL, select all four assets, and click **Materialize**. Outputs
 To materialize from the command line without the UI:
 
 ```bash
-uv run dg launch --assets '*' -m pipeline.definitions
+uv run dg launch --assets '*' -m bike_rental.definitions
 ```
 
 ## Development
@@ -162,3 +166,4 @@ uv run dg launch --assets '*' -m pipeline.definitions
 - **Explore interactively:** `uv run jupyter lab notebooks/processing_clean_data.ipynb`
 - **Lint / format:** `uv run ruff check .` and `uv run ruff format .`
 - **Docstrings:** NumPy-style on all non-trivial functions.
+- **Check hourly coverage:** `uv run python hour-coverage-issue/check_hourly_coverage.py` audits `weather.csv` and `final_dataset.csv` for missing or duplicate hours across 2011–2012.

@@ -51,7 +51,7 @@ class CSVIOManager(ConfigurableIOManager):
         return str(Path(self.output_dir) / filename)
 
     def _storage_options_for(self, path: str) -> dict[str, Any] | None:
-        """Only forward ``storage_options`` for fsspec paths (pandas rejects it otherwise)."""
+        """Only forward ``storage_options`` for fsspec paths, not local ones."""
         return self.storage_options if _is_s3_uri(path) else None
 
     def handle_output(self, context: OutputContext, obj: pd.DataFrame) -> None:

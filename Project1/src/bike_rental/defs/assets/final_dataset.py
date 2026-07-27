@@ -47,7 +47,8 @@ def final_dataset(context, rentals_with_weather: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=["holiday"], inplace=True)
 
     context.log.info(
-        f"Holiday data merged, Final dataset ready. Sample values:\n{df.head()}\nInfo:\n{df.info()}"
+        f"Holiday data merged, Final dataset ready. Sample values:\n"
+        f"{df.head()}\nInfo:\n{df.info()}"
     )
 
     return df

@@ -36,13 +36,14 @@ def rentals_with_time_features(
     df["is_weekend"] = df["day"] >= 5  # Saturday or Sunday
     df["time_of_day"] = pd.cut(
         df["hour"],
-        # 0=night [0-5], 1=morning [6-11], 2=afternoon [12-17], 3=evening [18-23]
+        # 0=night[0-5], 1=morning[6-11], 2=afternoon[12-17], 3=evening[18-23]
         bins=[-1, 5, 11, 17, 23],
         labels=[0, 1, 2, 3],
     ).astype("int8")
 
     context.log.info(
-        f"Time features engineered. Sample values:\n{df.head()}\nInfo:\n{df.info()}"
+        f"Time features engineered. Sample values:\n"
+        f"{df.head()}\nInfo:\n{df.info()}"
     )
 
     return df
